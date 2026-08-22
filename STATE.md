@@ -1,7 +1,7 @@
 # STATE — c2proof
 
 ## Phase
-SCAFFOLD COMPLETE (T03, T05, T10 partial) → next: T04/T06 pipeline wiring
+T04+T06 DONE, docs done → next: T07 REPORT.md generator, T08 PR push
 
 ## Locked Decisions
 - Name: `c2proof` · repo: AkashPriyadarshii/c2proof (public, to be created)
@@ -13,10 +13,10 @@ SCAFFOLD COMPLETE (T03, T05, T10 partial) → next: T04/T06 pipeline wiring
 - Scope frozen per PRD.md; non-goals listed there are final for v0.1.0
 
 ## Artifacts Present
-Repo live: github.com/AkashPriyadarshii/c2proof (main). cli/ crate (clap migrate cmd, scan_gate + 3 tests), .github/workflows/check.yml (fmt/clippy/test/audit/deny), deny.toml. Local gate green.
+Repo live: github.com/AkashPriyadarshii/c2proof. cli/ = lib (pipeline: clone→scan→transpile→cargo check) + thin bin. Transpiler seam: fixture mode (`C2PROOF_FIXTURE_DIR` override) / c2rust docker `ghcr.io/akashpriyadarshii/c2proof/runner:c2rust-0.20.0`. GHCR image pushed (c2rust 0.20.0 built from source in-image — upstream ships NO release assets). Workflows: check.yml green, docker.yml green. Docs: README(SEO)/INSTALL/CONTRIBUTING/CHANGELOG/LICENSE. Tests: cli/tests/pipeline.rs 11 integration tests incl exit-code mapping + GHCR lowercase invariant.
 
 ## Not Started
-T04 docker image, T06 pipeline wiring, T07 REPORT.md, T08 PR push, T09 action YAML, T10 e2e fixture job
+T07 REPORT.md, T08 PR push, T09 action YAML, T10 e2e fixture-regen job, T11 README asciinema, T12 tag v0.1.0
 
 ## Open Items
 - [ ] CI run on first push — verify check workflow green (incl. audit-check working-directory:cli)
