@@ -274,3 +274,17 @@ fn runner_image_tag_is_lowercase() {
         "image tag must pin c2rust version"
     );
 }
+
+// --- transpile arg construction (c2rust 0.20 rejects dir args) ---
+
+#[test]
+fn c2rust_args_list_c_files_explicitly() {
+    let d = tempfile::tempdir().unwrap();
+    fs::write(d.path().join("b.c"), "").unwrap();
+    fs::write(d.path().join("a.c"), "").unwrap(); // sorted before b.c
+    fs::write(d.path().join("h.h"), "").unwrap(); // headers not entry points
+    fs::create_dir(d.path().join("sub")).unwrap();
+    fs::write(d.path().join("sub/nested.c"), "").unwrap(); // flat scan only
+    let files = c2proof::list_c_files(d.path()).unwrap();
+    assert_eq!(files, vec!["a.c", "b.c"]);
+}

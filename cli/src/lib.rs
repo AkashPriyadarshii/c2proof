@@ -306,24 +306,46 @@ fn transpile_c2rust(src: &Path, out: &Path) -> Result<()> {
         _ => {}
     }
     std::fs::create_dir_all(out)?;
-    let status = Command::new("docker")
-        .args([
-            "run",
-            "--rm",
-            "-v",
-            &format!("{}:/work/src", src.canonicalize()?.display()),
-            "-v",
-            &format!("{}:/work/out", out.canonicalize()?.display()),
-            RUNNER_IMAGE,
-            "transpile",
-            "--emit-build-files",
-            "/work/src",
-        ])
-        .status()?;
+    let mut args = vec![
+        "run".to_string(),
+        "--rm".to_string(),
+        "-v".to_string(),
+        format!("{}:/work/src", src.canonicalize()?.display()),
+        "-v".to_string(),
+        format!("{}:/work/out", out.canonicalize()?.display()),
+        RUNNER_IMAGE.to_string(),
+        "transpile".to_string(),
+    ];
+    // c2rust 0.20 cannot parse a directory argument — list .c files explicitly
+    let c_files = list_c_files(src)?;
+    if c_files.is_empty() {
+        bail!("refused: no .c entry points found under {}", src.display());
+    }
+    for f in &c_files {
+        args.push(format!("/work/src/{f}"));
+    }
+    args.push("-o".to_string());
+    args.push("/work/out".to_string());
+    args.push("--emit-build-files".to_string());
+
+    let status = Command::new("docker").args(&args).status()?;
     if !status.success() {
         bail!("c2rust container failed");
     }
     Ok(())
+}
+
+pub fn list_c_files(dir: &Path) -> Result<Vec<String>> {
+    let mut v = Vec::new();
+    for e in std::fs::read_dir(dir)? {
+        let e = e?;
+        let name = e.file_name().to_string_lossy().into_owned();
+        if e.file_type()?.is_file() && name.ends_with(".c") && !name.starts_with('.') {
+            v.push(name);
+        }
+    }
+    v.sort();
+    Ok(v)
 }
 
 fn copy_dir(src: &Path, dst: &Path) -> std::io::Result<()> {
