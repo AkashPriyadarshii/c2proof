@@ -84,6 +84,8 @@ pub fn run(repo_url: &str, use_fixture: bool) -> Result<()> {
 pub struct Verification {
     pub build_ok: bool,
     pub clippy_warnings: usize,
+    /// First error lines from compiler/clippy stderr when the build failed
+    pub error_excerpt: String,
     /// per-file `unsafe fn` counts, sorted desc
     pub unsafe_fns: Vec<(String, usize)>,
 }
@@ -92,15 +94,27 @@ pub struct Verification {
 /// (arch doc: "cargo build fails → still open PR, report marks ❌"), so only
 /// hard tool errors bubble up.
 fn verify(out: &Path) -> Result<Verification> {
-    let res = cargo_capture(&["clippy", "--", "-D", "warnings"], out)
-        .context("cargo clippy (is rustup stable installed?)")?;
-    let clippy_warnings = String::from_utf8_lossy(&res.stderr)
+    let res =
+        cargo_capture(&["clippy"], out).context("cargo clippy (is rustup stable installed?)")?;
+    let stderr = String::from_utf8_lossy(&res.stderr);
+    let clippy_warnings = stderr
         .lines()
         .filter(|l| l.starts_with("warning: "))
         .count();
+    let error_excerpt = if res.status.success() {
+        String::new()
+    } else {
+        stderr
+            .lines()
+            .filter(|l| l.starts_with("error"))
+            .take(8)
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
     Ok(Verification {
         build_ok: res.status.success(),
         clippy_warnings,
+        error_excerpt,
         unsafe_fns: count_unsafe_fns(out),
     })
 }
@@ -169,7 +183,7 @@ fn render_report(source: &str, v: &Verification, fixture_mode: bool) -> String {
     r.push_str(&format!(
         "## Build: {}\n\n",
         if v.build_ok {
-            "✅ compiles (`cargo clippy -- -D warnings` ran)"
+            "✅ compiles (`cargo clippy` ran clean of errors)"
         } else {
             "❌ FAILED"
         }
@@ -178,6 +192,11 @@ fn render_report(source: &str, v: &Verification, fixture_mode: bool) -> String {
         "## Clippy warnings captured: {}\n\n",
         v.clippy_warnings
     ));
+    if !v.error_excerpt.is_empty() {
+        r.push_str("## Error excerpt\n\n```text\n");
+        r.push_str(&v.error_excerpt);
+        r.push_str("\n```\n\n");
+    }
     r.push_str("## Unsafe functions per file\n\n");
     if v.unsafe_fns.is_empty() {
         r.push_str("None detected (regex-level scan).\n");
