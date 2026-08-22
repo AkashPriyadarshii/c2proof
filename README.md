@@ -5,25 +5,27 @@
 **C to Rust migration with a verification report — not just transpiled code.**
 
 [![check](https://github.com/AkashPriyadarshii/c2proof/actions/workflows/check.yml/badge.svg)](https://github.com/AkashPriyadarshii/c2proof/actions/workflows/check.yml)
+[![e2e](https://github.com/AkashPriyadarshii/c2proof/actions/workflows/e2e.yml/badge.svg)](https://github.com/AkashPriyadarshii/c2proof/actions/workflows/e2e.yml)
 [![docker](https://github.com/AkashPriyadarshii/c2proof/actions/workflows/docker.yml/badge.svg)](https://github.com/AkashPriyadarshii/c2proof/actions/workflows/docker.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![rust](https://img.shields.io/badge/rust-stable-orange.svg)](https://www.rust-lang.org)
+[![site](https://img.shields.io/website?url=https%3A%2F%2Fakashpriyadarshii.github.io%2Fc2proof%2F)](https://akashpriyadarshii.github.io/c2proof/)
 
 Turn a legacy C project into a compiling Rust port pull request, plus a REPORT.md that tells you what to distrust.
+
+**🌐 [akashpriyadarshii.github.io/c2proof](https://akashpriyadarshii.github.io/c2proof/)**
 
 </div>
 
 ## Why c2proof?
 
-Automated C-to-Rust transpilers exist. Trusting their output doesn't. **c2proof** wraps [c2rust](https://c2rust.com/) mechanical translation in a verifier-first pipeline: every migration produces a **compiling Rust crate**, a **clippy-clean gate**, and a **verification report** — so you review evidence, not vibes. Built for teams migrating legacy C codebases to memory-safe Rust with CI/CD automation.
+Automated C-to-Rust transpilers exist. Trusting their output doesn't. **c2proof** wraps [c2rust](https://c2rust.com/) mechanical translation in a verifier-first pipeline: every migration produces a **compiling Rust crate**, a **clippy gate**, and a **verification report** — so you review evidence, not vibes. Built for teams migrating legacy C codebases to memory-safe Rust with CI/CD automation.
 
 ## Quickstart
 
 ```bash
-# clone any flat C project
-git clone --depth 1 https://github.com/nickmqb/muon ../tinyexpr
+cargo install --git https://github.com/AkashPriyadarshii/c2proof
 
-# migrate it (offline fixture mode)
+# offline pipeline against the committed golden fixture
 c2proof migrate ./tinyexpr --fixture
 ```
 
@@ -32,7 +34,11 @@ Or drop this into your repo's workflow:
 ```yaml
 - uses: AkashPriyadarshii/c2proof@v0
   with:
-    repo-url: https://github.com/someone/tinyexpr
+    repo-url: https://github.com/codeplea/tinyexpr
+    token: ${{ github.token }}
+permissions:
+  contents: write
+  pull-requests: write
 ```
 
 Full setup → [INSTALL.md](INSTALL.md)
@@ -40,22 +46,22 @@ Full setup → [INSTALL.md](INSTALL.md)
 ## How It Works
 
 ```
-clone → scan → c2rust transpile (pinned docker) → cargo check + clippy → PR + REPORT.md
+clone → scan → c2rust transpile (pinned docker) → clippy verify → PR + REPORT.md
 ```
 
-1. **Flat-scan gate** — refuses non-flat C projects up front with an exact reason (exit 2). No Makefile/cmake parsing in v0.
-2. **Pinned c2rust** — translation runs inside a versioned container (`ghcr.io/akashpriyadarshii/c2proof/runner`), never on your laptop.
-3. **Verify, don't trust** — output must compile; clippy findings are captured, not hidden.
-4. **Proof artifact** — REPORT.md lists unsafe-function counts per file and unresolved symbols. Mechanical translation is always labeled as such.
+1. **Flat-scan gate** — refuses non-flat C projects up front with an exact reason (exit 2). Metadata files (Makefile, README) are inert; subdirectories and unknown files are refused.
+2. **Pinned c2rust** — translation runs inside `ghcr.io/akashpriyadarshii/c2proof/runner:c2rust-0.20.0`, never on your laptop.
+3. **Verify, don't trust** — output must survive `cargo clippy -- -D warnings`; findings are captured, not hidden.
+4. **Proof artifact** — REPORT.md lists unsafe-function counts per file and build status inside the PR itself.
 
 ## Support Matrix
 
 | Input | Status |
 |---|---|
-| Flat `.c`/`.h` directories (no build system) | ✅ supported |
-| tinyexpr | ✅ CI-tested dogfood target |
-| Makefile / cmake / autotools | ❌ refused with reason |
-| Windows host OS | ❌ (CI-only compute) |
+| Flat `.c`/`.h` directories (+ inert metadata) | ✅ supported |
+| tinyexpr | ✅ e2e-tested dogfood target |
+| Makefile/cmake-driven multi-dir repos | ❌ refused with reason |
+| Windows host for real transpile | ❌ (CI-only compute; fixture mode works anywhere) |
 
 ## Keywords
 

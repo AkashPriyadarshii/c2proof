@@ -1,0 +1,45 @@
+name: 'c2proof'
+description: >-
+  C to Rust migration with a verification report. Turns a flat C project into
+  a compiling Rust port branch + PR with REPORT.md evidence attached.
+branding:
+  icon: 'check-circle'
+  color: 'orange'
+
+inputs:
+  repo-url:
+    description: 'URL (or local path) of the flat C repo to migrate.'
+    required: true
+  token:
+    description: 'GitHub token used to push the port branch and open the PR.'
+    required: false
+    default: ${{ github.token }}
+  fixture:
+    description: 'Set "true" to run offline against the committed golden fixture.'
+    required: false
+    default: 'false'
+
+outputs:
+  pr:
+    description: 'URL of the opened pull request, if any.'
+
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@stable
+    - name: Install c2proof CLI
+      shell: bash
+      run: cargo install --locked --path "${{ github.action_path }}/cli"
+    - name: Run migration
+      id: migrate
+      shell: bash
+      env:
+        C2PROOF_GITHUB_TOKEN: ${{ inputs.token }}
+      run: |
+        ARGS=()
+        [ "${{ inputs.fixture }}" = "true" ] && ARGS+=(--fixture)
+        c2proof migrate "${{ inputs.repo-url }}" "${ARGS[@]}"
+    - name: Expose PR URL
+      shell: bash
+      run: echo "pr=${{ steps.migrate.outputs.pr }}" >> "$GITHUB_OUTPUT" || true

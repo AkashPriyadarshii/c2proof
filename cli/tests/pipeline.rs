@@ -66,11 +66,11 @@ fn gate_refuses_subdir_exit2_reason() {
 }
 
 #[test]
-fn gate_refuses_buildfile() {
-    // Makefile present → must be refused (frozen scope)
+fn gate_refuses_configure_script() {
+    // build systems we'd have to invoke are out of scope → refuse
     let d = tempfile::tempdir().unwrap();
     write_flat_c(d.path());
-    fs::write(d.path().join("Makefile"), "all:\n").unwrap();
+    fs::write(d.path().join("configure"), "#!/bin/sh\n").unwrap();
     let err = c2proof::scan_gate(d.path()).unwrap_err();
     assert!(err.to_string().contains("refused:"));
 }
@@ -89,6 +89,25 @@ fn gate_refuses_empty_dir() {
 }
 
 // --- exit-code mapping ---
+
+#[test]
+fn gate_accepts_metadata_files() {
+    // tinyexpr ships a Makefile — inert metadata must not block migration
+    let d = tempfile::tempdir().unwrap();
+    write_flat_c(d.path());
+    fs::write(d.path().join("Makefile"), "all:\n\tcc a.c\n").unwrap();
+    fs::write(d.path().join("LICENSE"), "MIT").unwrap();
+    fs::write(d.path().join(".gitignore"), "o\n").unwrap();
+    assert!(c2proof::scan_gate(d.path()).is_ok());
+}
+
+#[test]
+fn gate_still_refuses_scripts() {
+    let d = tempfile::tempdir().unwrap();
+    write_flat_c(d.path());
+    fs::write(d.path().join("build.sh"), "echo hi").unwrap();
+    assert!(c2proof::scan_gate(d.path()).is_err());
+}
 
 #[test]
 fn exit_2_on_refusal_shape() {

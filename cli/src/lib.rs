@@ -233,24 +233,28 @@ fn ensure_success(cmd: &str, out: std::process::Output) -> Result<()> {
 }
 
 /// Refuse anything that is not a flat .c/.h directory. Exit code 2.
+/// Metadata files (Makefile, .gitignore, LICENSE, README, *.md) are inert —
+/// never parsed or executed, so their presence doesn't break scope.
 pub fn scan_gate(dir: &Path) -> Result<()> {
+    const INERT: &[&str] = &["makefile", ".gitignore", ".gitattributes"];
     let mut c_files = 0usize;
     for entry in std::fs::read_dir(dir)? {
         let entry = entry?;
         let name = entry.file_name();
         let name = name.to_string_lossy();
+        let lower = name.to_lowercase();
         if entry.file_type()?.is_dir() {
             if name == ".git" || name == "target" {
                 continue;
             }
             bail!("refused: subdirectory '{name}' present — v0.1.0 supports flat C projects only");
         }
-        if !(name.ends_with(".c")
-            || name.ends_with(".h")
-            || name == "LICENSE"
-            || name == "README.md"
-            || name.starts_with('.'))
-        {
+        let inert = INERT.contains(&lower.as_ref())
+            || lower.starts_with("license")
+            || lower.starts_with("readme")
+            || lower.ends_with(".md")
+            || name.starts_with('.');
+        if !(name.ends_with(".c") || name.ends_with(".h") || inert) {
             bail!("refused: unexpected file '{name}' — expected only .c/.h");
         }
         if name.ends_with(".c") || name.ends_with(".h") {

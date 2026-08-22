@@ -29,7 +29,7 @@ Runs the full pipeline against the committed golden fixture instead of real c2ru
 c2proof migrate https://github.com/someone/tinyexpr   # pulls pinned runner from GHCR
 ```
 
-Or use as a GitHub Action:
+Or use as a GitHub Action (marketplace-ready):
 
 ```yaml
 - uses: AkashPriyadarshii/c2proof@v0
@@ -50,3 +50,20 @@ Or use as a GitHub Action:
 - **`docker not found`** → install Docker Desktop, or rerun with `--fixture`.
 - **`refused: subdirectory ...`** → v0 supports flat C projects only. Flatten or wait for v0.2.
 - **`fixture missing`** → regenerate via the CI e2e job, then pull main.
+
+## As a GitHub Action
+
+```yaml
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: AkashPriyadarshii/c2proof@v0
+        with:
+          repo-url: ${{ github.server_url }}/${{ github.repository }}
+```
+
+Site & docs: https://akashpriyadarshii.github.io/c2proof/

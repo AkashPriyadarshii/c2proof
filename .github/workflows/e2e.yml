@@ -1,0 +1,63 @@
+name: e2e
+# Acceptance test for v0.1.0: a fresh tinyexpr clone must survive the full
+# real-c2rust pipeline, and the golden fixture gets refreshed from the output.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1" # weekly drift check against upstream c2rust pin
+
+permissions:
+  contents: write
+
+jobs:
+  tinyexpr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build CLI (release)
+        run: cargo build --release --manifest-path cli/Cargo.toml
+
+      - name: Clone dogfood target
+        run: git clone --depth 1 https://github.com/codeplea/tinyexpr /tmp/target
+
+      - name: Full pipeline — real c2rust container
+        env:
+          C2PROOF_WORK_DIR: ${{ github.workspace }}/e2e-out
+          # no C2PROOF_GITHUB_TOKEN → PR publish skipped; e2e asserts pipeline only
+        run: |
+          ./target/release/c2proof migrate /tmp/target
+          echo "--- exit $? must be 0 ---"
+
+      - name: Assert REPORT.md exists and marks build green
+        run: |
+          R=$(find e2e-out -name REPORT.md | head -1)
+          test -n "$R"
+          grep -q "✅ compiles" "$R"
+
+      - name: Refresh golden fixture
+        id: fixture
+        run: |
+          SRC=$(find e2e-out -maxdepth 2 -name out-crate | head -1)
+          rm -rf tests/fixtures/tinyexpr
+          mkdir -p tests/fixtures/tinyexpr
+          rsync -a --exclude target --exclude .git "$SRC"/ tests/fixtures/tinyexpr/
+          git add tests/fixtures/tinyexpr
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git -c user.name=c2proof[bot] -c user.email=c2proof@users.noreply.github.com \
+              commit -m "chore: refresh golden fixture (c2rust 0.20.0)"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fixture still passes local gate suite
+        run: cargo test --manifest-path cli/Cargo.toml
+
+      - name: Push refreshed fixture
+        if: steps.fixture.outputs.changed == 'true'
+        run: git push
