@@ -76,6 +76,10 @@ pub fn run(repo_url: &str, use_fixture: bool) -> Result<()> {
         "pipeline ok; REPORT.md written; build {}",
         if verify.build_ok { "green" } else { "FAILED" }
     );
+    if !verify.build_ok {
+        // CI logs need the reason; REPORT.md alone isn't visible mid-run
+        eprintln!("--- build failure evidence ---\n{}", verify.error_excerpt);
+    }
     Ok(())
 }
 
