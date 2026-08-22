@@ -1,7 +1,7 @@
 # STATE — c2proof
 
 ## Phase
-SITE LIVE → next: T10 e2e fixture-regen CI job, T09 action YAML
+T10 e2e — ONE failure left. Progress: c2rust DOES emit `rust-toolchain.toml` into out-crate (root cause of nightly-2022-08-08 miss). Pin now found + installed (log: "toolchain pin found ... rust-toolchain.toml", "downloading 4 components" OK). Build still FAILED with EMPTY error_excerpt — next session: pull REPORT.md from e2e-out artifact or print full clippy stderr on fail; likely real compile errors in transpiled tinyexpr (deps/edition). Then: fixture commit → tag v0.1.0 → gh release → STATE→RELEASED.
 
 ## Locked Decisions
 - Name: `c2proof` · repo: AkashPriyadarshii/c2proof (public, to be created)
