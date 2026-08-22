@@ -58,14 +58,144 @@ pub fn run(repo_url: &str, use_fixture: bool) -> Result<()> {
         transpile_c2rust(&src, &out)?;
     }
 
-    cargo(&["check"], &out).context("cargo check on transpiled crate")?;
-    println!("pipeline ok; PR push lands in T08");
+    let verify = verify(&out)?;
+    std::fs::write(
+        out.join("REPORT.md"),
+        render_report(repo_url, &verify, use_fixture),
+    )
+    .context("write REPORT.md")?;
+
+    match publish_pr(&out, repo_url) {
+        Ok(Some(url)) => println!("PR: {url}"),
+        Ok(None) => {
+            println!("PR skipped (set C2PROOF_GITHUB_TOKEN on a github.com repo to enable)")
+        }
+        Err(e) => bail!("PR publish failed: {e:#}"),
+    }
+    println!(
+        "pipeline ok; REPORT.md written; build {}",
+        if verify.build_ok { "green" } else { "FAILED" }
+    );
     Ok(())
+}
+
+// --- verification + report (T07) ---
+
+pub struct Verification {
+    pub build_ok: bool,
+    pub clippy_warnings: usize,
+    /// per-file `unsafe fn` counts, sorted desc
+    pub unsafe_fns: Vec<(String, usize)>,
+}
+
+/// Build gate + evidence collection. Clippy failure still produces a report
+/// (arch doc: "cargo build fails → still open PR, report marks ❌"), so only
+/// hard tool errors bubble up.
+fn verify(out: &Path) -> Result<Verification> {
+    let res = cargo_capture(&["clippy", "--", "-D", "warnings"], out)
+        .context("cargo clippy (is rustup stable installed?)")?;
+    let clippy_warnings = String::from_utf8_lossy(&res.stderr)
+        .lines()
+        .filter(|l| l.starts_with("warning: "))
+        .count();
+    Ok(Verification {
+        build_ok: res.status.success(),
+        clippy_warnings,
+        unsafe_fns: count_unsafe_fns(out),
+    })
+}
+
+struct Captured {
+    status: std::process::ExitStatus,
+    stderr: Vec<u8>,
+}
+
+fn cargo_capture(args: &[&str], cwd: &Path) -> std::io::Result<Captured> {
+    let out = Command::new("cargo")
+        .args(args)
+        .current_dir(cwd)
+        .env_remove("CARGO_MANIFEST_DIR")
+        .output()?;
+    Ok(Captured {
+        status: out.status,
+        stderr: out.stderr,
+    })
+}
+
+/// Regex-level per architecture.md — no syn.
+fn count_unsafe_fns(crate_root: &Path) -> Vec<(String, usize)> {
+    let mut v = Vec::new();
+    fn walk(dir: &Path, crate_root: &Path, v: &mut Vec<(String, usize)>) {
+        for e in std::fs::read_dir(dir).into_iter().flatten() {
+            let Ok(e) = e else { continue };
+            let p = e.path();
+            if p.is_dir() {
+                walk(&p, crate_root, v);
+            } else if p.extension().is_some_and(|x| x == "rs") {
+                let n = std::fs::read_to_string(&p)
+                    .map(|s| s.matches("unsafe fn").count())
+                    .unwrap_or(0);
+                v.push((
+                    p.strip_prefix(crate_root)
+                        .unwrap_or(&p)
+                        .display()
+                        .to_string(),
+                    n,
+                ));
+            }
+        }
+    }
+    walk(crate_root, crate_root, &mut v);
+    v.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    v.retain(|(_, n)| *n > 0);
+    v
+}
+
+fn render_report(source: &str, v: &Verification, fixture_mode: bool) -> String {
+    let mut r = String::new();
+    r.push_str("# c2proof Verification Report\n\n");
+    r.push_str(&format!("- Source: `{source}`\n"));
+    r.push_str(&format!(
+        "- Tool: c2rust 0.20.0{}\n",
+        if fixture_mode {
+            " (golden-fixture replay)"
+        } else {
+            ""
+        }
+    ));
+    r.push_str(
+        "- **This is a mechanical translation. It is NOT safe Rust and NOT reviewed code.**\n\n",
+    );
+    r.push_str(&format!(
+        "## Build: {}\n\n",
+        if v.build_ok {
+            "✅ compiles (`cargo clippy -- -D warnings` ran)"
+        } else {
+            "❌ FAILED"
+        }
+    ));
+    r.push_str(&format!(
+        "## Clippy warnings captured: {}\n\n",
+        v.clippy_warnings
+    ));
+    r.push_str("## Unsafe functions per file\n\n");
+    if v.unsafe_fns.is_empty() {
+        r.push_str("None detected (regex-level scan).\n");
+    } else {
+        r.push_str("| file | `unsafe fn` count |\n|---|---|\n");
+        for (f, n) in &v.unsafe_fns {
+            r.push_str(&format!("| `{f}` | {n} |\n"));
+        }
+    }
+    r
 }
 
 // ponytail: tempdir via std env TMP, manual cleanup skipped — short-lived dirs fine for v0.1.
 fn tempfile_dir() -> Result<PathBuf> {
-    let d = std::env::temp_dir().join(format!("c2proof-{}-{}", std::process::id(), fastrand_id()));
+    let base = std::env::var_os("C2PROOF_WORK_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(std::env::temp_dir);
+    let d = base.join(format!("c2proof-{}-{}", std::process::id(), fastrand_id()));
     std::fs::create_dir_all(&d)?;
     Ok(d)
 }
@@ -91,15 +221,6 @@ fn prepare_source(repo_url: &str, tmp: &Path) -> Result<PathBuf> {
 fn git(args: &[&str]) -> Result<()> {
     let out = Command::new("git").args(args).output()?;
     ensure_success("git", out)
-}
-
-fn cargo(args: &[&str], cwd: &Path) -> Result<()> {
-    let out = Command::new("cargo")
-        .args(args)
-        .current_dir(cwd)
-        .env_remove("CARGO_MANIFEST_DIR") // isolate from c2proof's own build
-        .output()?;
-    ensure_success("cargo", out)
 }
 
 fn ensure_success(cmd: &str, out: std::process::Output) -> Result<()> {
@@ -202,4 +323,121 @@ fn copy_dir(src: &Path, dst: &Path) -> std::io::Result<()> {
         }
     }
     Ok(())
+}
+
+// --- PR publish (T08) ---
+
+const BRANCH: &str = "c2proof/port";
+
+/// Returns Some(pr_url) when a PR was opened, None when publishing doesn't apply
+/// (no token, or source isn't a github.com repo). Token stays out of argv where possible.
+pub fn publish_pr(out: &Path, source_url: &str) -> Result<Option<String>> {
+    let Ok(token) = std::env::var("C2PROOF_GITHUB_TOKEN") else {
+        return Ok(None);
+    };
+    let Some((owner, repo)) = parse_github_slug(source_url) else {
+        return Ok(None);
+    };
+
+    git(&["init", "-b", BRANCH, out.to_str().unwrap()]).context("git init in output crate")?;
+    // never commit build artifacts into the PR
+    std::fs::write(out.join(".gitignore"), "target/\n")?;
+    git(&["-C", out.to_str().unwrap(), "add", "-A"])?;
+    git(&[
+        "-C",
+        out.to_str().unwrap(),
+        "-c",
+        "user.name=c2proof[bot]",
+        "-c",
+        "user.email=c2proof@users.noreply.github.com",
+        "commit",
+        "-m",
+        "c2proof: mechanical Rust port (unsafe, unreviewed — see REPORT.md)",
+    ])
+    .context("git commit (empty tree?)")?;
+    git(&[
+        "push",
+        "--force",
+        &format!("https://x-access-token:{token}@github.com/{owner}/{repo}.git"),
+        &format!("{BRANCH}:{BRANCH}"),
+        "--quiet",
+    ])
+    .context(
+        "git push (check C2PROOF_GITHUB_TOKEN scopes: contents:write + pull_requests:write)",
+    )?;
+
+    open_pr(&token, &owner, &repo, source_url)
+}
+
+/// Accepts https://github.com/o/r, .../o/r.git, o/r.
+pub fn parse_github_slug(url: &str) -> Option<(String, String)> {
+    let s = url
+        .trim_end_matches("/")
+        .strip_suffix(".git")
+        .unwrap_or(url);
+    let s = s.strip_prefix("https://github.com/").unwrap_or(s);
+    let mut it = s.split('/');
+    match (it.next(), it.next()) {
+        (Some(o), Some(r)) if !o.is_empty() && !r.is_empty() && it.next().is_none() => {
+            Some((o.to_string(), r.to_string()))
+        }
+        _ => None,
+    }
+}
+
+fn open_pr(token: &str, owner: &str, repo: &str, source_url: &str) -> Result<Option<String>> {
+    let body = format!(
+        r#"{{"title":"c2proof: mechanical Rust port","head":"{BRANCH}","base":"main","body":{}}}"#,
+        serde_json_escape(&format!(
+            "Mechanical c2rust translation of `{source_url}`.\n\n**Not safe Rust, not reviewed code.** Verification evidence in REPORT.md."
+        ))
+    );
+    let out = Command::new("curl")
+        .args([
+            "-sf",
+            "-X",
+            "POST",
+            "-H",
+            &format!("Authorization: Bearer {token}"),
+            "-H",
+            "Accept: application/vnd.github+json",
+            "-d",
+            &body,
+            &format!("https://api.github.com/repos/{owner}/{repo}/pulls"),
+        ])
+        .output()?;
+    if out.status.success() {
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        let url = stdout
+            .split("\"html_url\":\"")
+            .nth(1)
+            .and_then(|s| s.split('"').next())
+            .map(|s| s.to_string());
+        return Ok(Some(url.unwrap_or_else(|| {
+            format!("https://github.com/{owner}/{repo}/pulls")
+        })));
+    }
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    // -f swallows body; 422 = PR already exists → treat as success-ish but report it
+    if stderr.contains("422") || stderr.contains("already exists") {
+        println!("PR already open on {BRANCH}");
+        return Ok(Some(format!("https://github.com/{owner}/{repo}/pulls")));
+    }
+    bail!("GitHub API rejected PR creation: {stderr}")
+}
+
+fn serde_json_escape(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() + 2);
+    out.push('"');
+    for c in s.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    out
 }

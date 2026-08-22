@@ -2,7 +2,12 @@
 //! Goal: nothing reaches CI that can fail on logic we control.
 
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+
+/// Tests mutate process-global env vars (C2PROOF_FIXTURE_DIR, C2PROOF_WORK_DIR);
+/// cargo runs them in parallel threads → serialize every env-touching test.
+static ENV_LOCK: Mutex<()> = Mutex::new(());
 
 // --- helpers ---
 
@@ -33,7 +38,6 @@ fn set_fixture_dir(path: &Path) -> FixtureGuard {
     std::env::set_var("C2PROOF_FIXTURE_DIR", path);
     FixtureGuard
 }
-
 // --- scan gate ---
 
 #[test]
@@ -100,24 +104,92 @@ fn exit_1_on_unreachable_url() {
     assert_eq!(c2proof::migrate("/definitely/not/a/real/path-xyz", true), 1);
 }
 
+struct WorkDirGuard(PathBuf);
+impl Drop for WorkDirGuard {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+        std::env::remove_var("C2PROOF_WORK_DIR");
+    }
+}
+
+fn set_work_dir() -> (WorkDirGuard, PathBuf) {
+    let d = tempfile::tempdir_in(std::env::temp_dir()).unwrap().keep();
+    std::env::set_var("C2PROOF_WORK_DIR", &d);
+    (WorkDirGuard(d.clone()), d)
+}
+
+// --- report content + build-failure semantics ---
+
 #[test]
-fn exit_1_on_missing_fixture() {
-    let d = tempfile::tempdir().unwrap();
-    write_flat_c(d.path());
-    let empty = tempfile::tempdir().unwrap(); // fixture dir with no Cargo.toml
-    let _g = set_fixture_dir(empty.path());
-    // copy succeeds on empty dir; cargo check then fails → exit 1
-    assert_eq!(
-        c2proof::migrate(d.path().to_str().unwrap(), true),
-        1,
-        "empty fixture must not yield exit 0"
+fn build_failure_still_completes_and_reports() {
+    // arch invariant: build fails → pipeline still completes, REPORT.md marks ❌, exit 0
+    let _env = ENV_LOCK.lock().unwrap();
+    let src = tempfile::tempdir().unwrap();
+    write_flat_c(src.path());
+    let fix = tempfile::tempdir().unwrap();
+    write_crate(fix.path(), "broken-port");
+    fs::write(
+        fix.path().join("lib.rs"),
+        "unsafe fn f() -> i32 { 42 }\nfn g() { f() }\n",
+    )
+    .unwrap();
+    let _g = set_fixture_dir(fix.path());
+    let (wd, path) = set_work_dir();
+
+    let code = c2proof::migrate(src.path().to_str().unwrap(), true);
+    assert_eq!(code, 0, "build failure must not abort the pipeline");
+
+    // run() nests a c2proof-* workdir under the configured base
+    let mut report_path = None;
+    for e in fs::read_dir(&path).unwrap() {
+        let p = e.unwrap().path().join("out-crate/REPORT.md");
+        if p.exists() {
+            report_path = Some(p);
+            break;
+        }
+    }
+    let report =
+        fs::read_to_string(report_path.expect("REPORT.md not found under work dir")).unwrap();
+    assert!(report.contains("❌ FAILED"), "{report}");
+    assert!(report.contains("NOT safe Rust"), "{report}");
+    assert!(
+        report.contains("| `lib.rs` | 1 |"),
+        "unsafe table row missing: {report}"
     );
+    drop(wd);
+}
+
+#[test]
+fn slug_parsing_variants() {
+    assert_eq!(
+        c2proof::parse_github_slug("https://github.com/o/r"),
+        Some(("o".into(), "r".into()))
+    );
+    assert_eq!(
+        c2proof::parse_github_slug("https://github.com/o/r.git"),
+        Some(("o".into(), "r".into()))
+    );
+    assert_eq!(
+        c2proof::parse_github_slug("o/r"),
+        Some(("o".into(), "r".into()))
+    );
+    assert_eq!(
+        c2proof::parse_github_slug("https://github.com/o/r/tree/main"),
+        None
+    );
+    assert_eq!(c2proof::parse_github_slug("o"), None);
+    // non-github host → no PR publish, pipeline continues
+    assert!(matches!(
+        c2proof::publish_pr(Path::new("."), "https://gitlab.com/o/r"),
+        Ok(None)
+    ));
 }
 
 // --- full happy path (fixture mode, real cargo check) ---
 
 #[test]
 fn full_pipeline_fixture_mode_green() {
+    let _env = ENV_LOCK.lock().unwrap();
     let src = tempfile::tempdir().unwrap();
     write_flat_c(src.path());
     let fix = tempfile::tempdir().unwrap();
