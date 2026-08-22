@@ -4,6 +4,9 @@ name: e2e
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
   workflow_dispatch:
   schedule:
     - cron: "0 6 * * 1" # weekly drift check against upstream c2rust pin
