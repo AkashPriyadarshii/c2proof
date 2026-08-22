@@ -236,7 +236,15 @@ fn ensure_success(cmd: &str, out: std::process::Output) -> Result<()> {
 /// Metadata files (Makefile, .gitignore, LICENSE, README, *.md) are inert —
 /// never parsed or executed, so their presence doesn't break scope.
 pub fn scan_gate(dir: &Path) -> Result<()> {
-    const INERT: &[&str] = &["makefile", ".gitignore", ".gitattributes"];
+    const INERT: &[&str] = &[
+        "makefile",
+        ".gitignore",
+        ".gitattributes",
+        "citation.cff",
+        "contributing",
+        "changelog",
+    ];
+    const INERT_DIRS: &[&str] = &["doc", "docs"];
     let mut c_files = 0usize;
     for entry in std::fs::read_dir(dir)? {
         let entry = entry?;
@@ -244,7 +252,11 @@ pub fn scan_gate(dir: &Path) -> Result<()> {
         let name = name.to_string_lossy();
         let lower = name.to_lowercase();
         if entry.file_type()?.is_dir() {
-            if name == ".git" || name == "target" {
+            if name == ".git"
+                || name == "target"
+                || name.starts_with('.')
+                || INERT_DIRS.contains(&lower.as_ref())
+            {
                 continue;
             }
             bail!("refused: subdirectory '{name}' present — v0.1.0 supports flat C projects only");

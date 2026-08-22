@@ -102,6 +102,45 @@ fn gate_accepts_metadata_files() {
 }
 
 #[test]
+fn gate_accepts_actual_tinyexpr_layout() {
+    // exact upstream layout: github.com/codeplea/tinyexpr root listing.
+    // This is the acceptance target — keep in sync with e2e.yml.
+    let d = tempfile::tempdir().unwrap();
+    write_flat_c(d.path());
+    for f in [
+        ".github",
+        "doc", // dirs
+        ".gitignore",
+        "CITATION.cff",
+        "CONTRIBUTING",
+        "LICENSE",
+        "Makefile",
+        "README.md",
+        "benchmark.c",
+        "example.c",
+        "example2.c",
+        "example3.c",
+        "minctest.h",
+        "repl.c",
+        "smoke.c",
+        "tinyexpr.c",
+        "tinyexpr.h",
+    ] {
+        let p = d.path().join(f);
+        if f == ".github" || f == "doc" {
+            fs::create_dir(&p).unwrap();
+            fs::write(p.join("placeholder.md"), "x").unwrap();
+        } else {
+            fs::write(p, "x").unwrap();
+        }
+    }
+    assert!(
+        c2proof::scan_gate(d.path()).is_ok(),
+        "raw tinyexpr clone must pass the gate"
+    );
+}
+
+#[test]
 fn gate_still_refuses_scripts() {
     let d = tempfile::tempdir().unwrap();
     write_flat_c(d.path());
