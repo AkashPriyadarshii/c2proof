@@ -1,7 +1,7 @@
 # STATE — c2proof
 
 ## Phase
-T07+T08 DONE → next: T09 action YAML, T10 e2e fixture-regen CI job
+SITE LIVE → next: T10 e2e fixture-regen CI job, T09 action YAML
 
 ## Locked Decisions
 - Name: `c2proof` · repo: AkashPriyadarshii/c2proof (public, to be created)
@@ -13,7 +13,7 @@ T07+T08 DONE → next: T09 action YAML, T10 e2e fixture-regen CI job
 - Scope frozen per PRD.md; non-goals listed there are final for v0.1.0
 
 ## Artifacts Present
-Repo live: github.com/AkashPriyadarshii/c2proof. cli/ = lib (pipeline: clone→scan→transpile→cargo check) + thin bin. Transpiler seam: fixture mode (`C2PROOF_FIXTURE_DIR` override) / c2rust docker `ghcr.io/akashpriyadarshii/c2proof/runner:c2rust-0.20.0`. GHCR image pushed (c2rust 0.20.0 built from source in-image — upstream ships NO release assets). Workflows: check.yml green, docker.yml green. Docs: README(SEO)/INSTALL/CONTRIBUTING/CHANGELOG/LICENSE. Tests: cli/tests/pipeline.rs 11 integration tests incl exit-code mapping + GHCR lowercase invariant.
+Site live: https://akashpriyadarshii.github.io/c2proof/ (Pages from docs/, homepage set on repo). docs/: index.html (industrial-utilitarian, full SEO meta + JSON-LD SoftwareApplication/WebSite, sitemap, robots.txt, favicon.svg, .nojekyll). cli/ = lib (pipeline: clone→scan→transpile→verify→REPORT.md→PR) + thin bin. Transpiler seam: fixture mode (`C2PROOF_FIXTURE_DIR`/`C2PROOF_WORK_DIR`) / c2rust docker `ghcr.io/akashpriyadarshii/c2proof/runner:c2rust-0.20.0` (built from source in-image — upstream ships NO release assets). PR publish via C2PROOF_GITHUB_TOKEN. Workflows green: check.yml, docker.yml. 12 integration tests in cli/tests/pipeline.rs.
 
 ## Not Started
 T09 action YAML, T10 e2e fixture-regen job, T11 README asciinema, T12 tag v0.1.0
