@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://akashpriyadarshii.github.io/c2proof/sitemap.xml
