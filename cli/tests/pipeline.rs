@@ -288,3 +288,22 @@ fn c2rust_args_list_c_files_explicitly() {
     let files = c2proof::list_c_files(d.path()).unwrap();
     assert_eq!(files, vec!["a.c", "b.c"]);
 }
+
+// --- toolchain pin parsing (c2rust emits rust-toolchain into the port) ---
+
+#[test]
+fn toolchain_pin_parses_both_formats() {
+    let _env = ENV_LOCK.lock().unwrap();
+    let d = tempfile::tempdir().unwrap();
+    fs::write(d.path().join("rust-toolchain"), "nightly-2022-01-01\n").unwrap();
+    let channel = c2proof::ensure_toolchain_for(d.path()).unwrap();
+    assert_eq!(channel, "nightly-2022-01-01");
+
+    fs::write(
+        d.path().join("rust-toolchain"),
+        "[toolchain]\nchannel = \"nightly-2022-08-08\"\n",
+    )
+    .unwrap();
+    let channel = c2proof::ensure_toolchain_for(d.path()).unwrap();
+    assert_eq!(channel, "nightly-2022-08-08");
+}

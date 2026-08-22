@@ -98,6 +98,10 @@ pub struct Verification {
 /// (arch doc: "cargo build fails → still open PR, report marks ❌"), so only
 /// hard tool errors bubble up.
 fn verify(out: &Path) -> Result<Verification> {
+    if out.join("rust-toolchain").is_file() {
+        let channel = ensure_toolchain_for(out)?;
+        install_pinned_toolchain(&channel)?;
+    }
     let res =
         cargo_capture(&["clippy"], out).context("cargo clippy (is rustup stable installed?)")?;
     let stderr = String::from_utf8_lossy(&res.stderr);
@@ -501,4 +505,80 @@ fn serde_json_escape(s: &str) -> String {
     }
     out.push('"');
     out
+}
+
+/// Read and parse the pinned toolchain channel from `<crate_dir>/rust-toolchain`.
+/// Parsing only — no rustup calls. Caller checks the file exists first (see
+/// `verify`), so a missing file surfaces here as a read error.
+pub fn ensure_toolchain_for(crate_dir: &Path) -> Result<String> {
+    let pin_path = crate_dir.join("rust-toolchain");
+    let contents = std::fs::read_to_string(&pin_path)
+        .with_context(|| format!("read {}", pin_path.display()))?;
+    parse_toolchain_channel(&contents).ok_or_else(|| {
+        anyhow!(
+            "could not parse toolchain channel from {}",
+            pin_path.display()
+        )
+    })
+}
+
+/// Regex-level, no serde. Supports plain-string ("nightly-2022-08-08") and
+/// TOML `[toolchain]\nchannel = "..."` forms.
+fn parse_toolchain_channel(contents: &str) -> Option<String> {
+    let trimmed = contents.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    for line in trimmed.lines() {
+        let line = line.trim();
+        let Some(rest) = line.strip_prefix("channel") else {
+            continue;
+        };
+        let rest = rest.trim_start();
+        let Some(rest) = rest.strip_prefix('=') else {
+            continue;
+        };
+        let channel = rest.trim().trim_matches(|c| c == '"' || c == '\'').trim();
+        if !channel.is_empty() {
+            return Some(channel.to_string());
+        }
+    }
+    let first = trimmed.lines().next().unwrap_or("").trim();
+    if first.is_empty() {
+        None
+    } else {
+        Some(first.to_string())
+    }
+}
+
+/// Idempotent: skips install if rustup already lists `channel`.
+fn install_pinned_toolchain(channel: &str) -> Result<()> {
+    let list = Command::new("rustup")
+        .args(["toolchain", "list"])
+        .output()
+        .context("rustup toolchain list (is rustup installed and on PATH?)")?;
+    let already_installed = String::from_utf8_lossy(&list.stdout)
+        .lines()
+        .any(|l| l.trim_start().starts_with(channel));
+    if already_installed {
+        return Ok(());
+    }
+    let status = Command::new("rustup")
+        .args([
+            "toolchain",
+            "install",
+            channel,
+            "--profile",
+            "minimal",
+            "--component",
+            "clippy",
+        ])
+        .status()
+        .with_context(|| format!("rustup toolchain install {channel}"))?;
+    if !status.success() {
+        bail!(
+            "failed to install pinned toolchain '{channel}' (from rust-toolchain) — install it manually: `rustup toolchain install {channel} --profile minimal --component clippy`"
+        );
+    }
+    Ok(())
 }
