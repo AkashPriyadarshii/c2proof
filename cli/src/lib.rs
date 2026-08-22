@@ -98,12 +98,24 @@ pub struct Verification {
 /// (arch doc: "cargo build fails → still open PR, report marks ❌"), so only
 /// hard tool errors bubble up.
 fn verify(out: &Path) -> Result<Verification> {
-    if out.join("rust-toolchain").is_file() {
-        let channel = ensure_toolchain_for(out)?;
+    if let Some(pin_path) = find_toolchain_pin(out) {
+        eprintln!("toolchain pin found: {}", pin_path.display());
+        let channel = ensure_toolchain_for(&pin_path)?;
         install_pinned_toolchain(&channel)?;
     }
-    let res =
+    let mut res =
         cargo_capture(&["clippy"], out).context("cargo clippy (is rustup stable installed?)")?;
+    if !res.status.success() {
+        // Mechanism-independent fallback: whatever selected an absent toolchain
+        // (pin file, env, cargo config), the error names it. Install + retry once.
+        let stderr = String::from_utf8_lossy(&res.stderr);
+        if let Some(channel) = stderr_missing_toolchain(&stderr) {
+            eprintln!("clippy named missing toolchain '{channel}' — installing and retrying once");
+            install_pinned_toolchain(&channel)?;
+            res = cargo_capture(&["clippy"], out)
+                .context("cargo clippy retry (is rustup stable installed?)")?;
+        }
+    }
     let stderr = String::from_utf8_lossy(&res.stderr);
     let clippy_warnings = stderr
         .lines()
@@ -510,9 +522,45 @@ fn serde_json_escape(s: &str) -> String {
 /// Read and parse the pinned toolchain channel from `<crate_dir>/rust-toolchain`.
 /// Parsing only — no rustup calls. Caller checks the file exists first (see
 /// `verify`), so a missing file surfaces here as a read error.
-pub fn ensure_toolchain_for(crate_dir: &Path) -> Result<String> {
-    let pin_path = crate_dir.join("rust-toolchain");
-    let contents = std::fs::read_to_string(&pin_path)
+const TOOLCHAIN_FILE_NAMES: [&str; 2] = ["rust-toolchain", "rust-toolchain.toml"];
+
+/// Locate a rust-toolchain pin at crate root or one level below (nested
+/// workspace layouts). Checks legacy bare filename and TOML name.
+pub fn find_toolchain_pin(crate_dir: &Path) -> Option<std::path::PathBuf> {
+    for name in TOOLCHAIN_FILE_NAMES {
+        let p = crate_dir.join(name);
+        if p.is_file() {
+            return Some(p);
+        }
+    }
+    for entry in std::fs::read_dir(crate_dir).ok()?.flatten() {
+        if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+            for name in TOOLCHAIN_FILE_NAMES {
+                let p = entry.path().join(name);
+                if p.is_file() {
+                    return Some(p);
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Extract a toolchain name from rustup's "not installed for the toolchain
+/// 'X'" error. This is the catch-all when no pin file is found but something
+/// else selected an absent toolchain.
+pub fn stderr_missing_toolchain(stderr: &str) -> Option<String> {
+    stderr.lines().find_map(|l| {
+        let idx = l.find("not installed for the toolchain '")?;
+        let rest = &l[idx + "not installed for the toolchain '".len()..];
+        let end = rest.find('\'')?;
+        Some(rest[..end].to_string())
+    })
+}
+
+/// Parse-only: read and extract the pinned channel. No rustup calls.
+pub fn ensure_toolchain_for(pin_path: &Path) -> Result<String> {
+    let contents = std::fs::read_to_string(pin_path)
         .with_context(|| format!("read {}", pin_path.display()))?;
     parse_toolchain_channel(&contents).ok_or_else(|| {
         anyhow!(

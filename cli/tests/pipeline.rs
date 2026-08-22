@@ -296,7 +296,8 @@ fn toolchain_pin_parses_both_formats() {
     let _env = ENV_LOCK.lock().unwrap();
     let d = tempfile::tempdir().unwrap();
     fs::write(d.path().join("rust-toolchain"), "nightly-2022-01-01\n").unwrap();
-    let channel = c2proof::ensure_toolchain_for(d.path()).unwrap();
+    let pin = c2proof::find_toolchain_pin(d.path()).unwrap();
+    let channel = c2proof::ensure_toolchain_for(&pin).unwrap();
     assert_eq!(channel, "nightly-2022-01-01");
 
     fs::write(
@@ -304,6 +305,22 @@ fn toolchain_pin_parses_both_formats() {
         "[toolchain]\nchannel = \"nightly-2022-08-08\"\n",
     )
     .unwrap();
-    let channel = c2proof::ensure_toolchain_for(d.path()).unwrap();
+    let pin = c2proof::find_toolchain_pin(d.path()).unwrap();
+    assert!(pin.ends_with("rust-toolchain")); // toml name wins only if bare absent
+    let channel = c2proof::ensure_toolchain_for(&pin).unwrap();
     assert_eq!(channel, "nightly-2022-08-08");
+
+    // rustup error string extraction (mechanism-independent fallback)
+    fs::remove_file(d.path().join("rust-toolchain")).unwrap();
+    assert!(c2proof::find_toolchain_pin(d.path()).is_none());
+}
+
+#[test]
+fn stderr_names_missing_toolchain() {
+    let s = "error: 'cargo-clippy' is not installed for the toolchain 'nightly-2022-08-08-x86_64-unknown-linux-gnu'.\nnote: this is part of cargo";
+    assert_eq!(
+        c2proof::stderr_missing_toolchain(s).as_deref(),
+        Some("nightly-2022-08-08-x86_64-unknown-linux-gnu")
+    );
+    assert_eq!(c2proof::stderr_missing_toolchain("no error here"), None);
 }
