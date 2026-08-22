@@ -30,7 +30,7 @@ jobs:
           C2PROOF_WORK_DIR: ${{ github.workspace }}/e2e-out
           # no C2PROOF_GITHUB_TOKEN → PR publish skipped; e2e asserts pipeline only
         run: |
-          ./target/release/c2proof migrate /tmp/target
+          cli/target/release/c2proof migrate /tmp/target
           echo "--- exit $? must be 0 ---"
 
       - name: Assert REPORT.md exists and marks build green
