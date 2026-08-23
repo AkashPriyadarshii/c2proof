@@ -1,8 +1,7 @@
 # STATE — c2proof
 
 ## Phase
-T10 e2e is fully green and passing! The workspace root issue is fixed, and the pipeline correctly transpiles `tinyexpr` and pushes the golden fixture when changed.
-Next up: T11 README asciinema (recording a terminal demo of the tool) and T12 tag v0.1.0 (release).
+v0.1.0 is RELEASED. The pipeline is fully green, README is written, and the `v0.1.0` tag is cut and published.
 
 ## Locked Decisions
 - Name: `c2proof` · repo: AkashPriyadarshii/c2proof (public, to be created)
@@ -17,7 +16,7 @@ Next up: T11 README asciinema (recording a terminal demo of the tool) and T12 ta
 Site live: https://akashpriyadarshii.github.io/c2proof/ (Pages from docs/, homepage set on repo). docs/: index.html (industrial-utilitarian, full SEO meta + JSON-LD SoftwareApplication/WebSite, sitemap, robots.txt, favicon.svg, .nojekyll). cli/ = lib (pipeline: clone→scan→transpile→verify→REPORT.md→PR) + thin bin. Transpiler seam: fixture mode (`C2PROOF_FIXTURE_DIR`/`C2PROOF_WORK_DIR`) / c2rust docker `ghcr.io/akashpriyadarshii/c2proof/runner:c2rust-0.20.0` (built from source in-image — upstream ships NO release assets). PR publish via C2PROOF_GITHUB_TOKEN. Workflows green: docker.yml, e2e.yml. 12 integration tests in cli/tests/pipeline.rs.
 
 ## Not Started
-T11 README asciinema, T12 tag v0.1.0
+None. v0.1.0 is RELEASED.
 
 ## Open Items
 - [ ] CI run on first push — verify check workflow green (incl. audit-check working-directory:cli)
