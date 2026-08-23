@@ -23,7 +23,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Build CLI (release)
-        run: cargo build --release --manifest-path cli/Cargo.toml
+        run: cargo build --release
 
       - name: Clone dogfood target
         run: git clone --depth 1 https://github.com/codeplea/tinyexpr /tmp/target
@@ -33,7 +33,7 @@ jobs:
           C2PROOF_WORK_DIR: ${{ github.workspace }}/e2e-out
           # no C2PROOF_GITHUB_TOKEN → PR publish skipped; e2e asserts pipeline only
         run: |
-          cli/target/release/c2proof migrate /tmp/target
+          target/release/c2proof migrate /tmp/target
           echo "--- exit $? must be 0 ---"
 
       - name: Assert REPORT.md exists and marks build green
@@ -70,7 +70,7 @@ jobs:
           fi
 
       - name: Fixture still passes local gate suite
-        run: cargo test --manifest-path cli/Cargo.toml
+        run: cargo test
 
       - name: Push refreshed fixture
         if: steps.fixture.outputs.changed == 'true'

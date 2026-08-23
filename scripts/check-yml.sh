@@ -29,7 +29,7 @@ for f in sorted(glob.glob(".github/workflows/*.yml")) + ["action.yml"]:
 
 # cross-check: e2e binary path must match cargo's actual target dir layout
 e2e = open(".github/workflows/e2e.yml", encoding="utf-8").read()
-assert "cli/target/release/c2proof migrate" in e2e, "e2e binary path wrong (target lives in cli/target)"
+assert "target/release/c2proof migrate" in e2e, "e2e binary path wrong (target lives in workspace root)"
 # runner image referenced in code must be lowercase and pinned
 lib = open("cli/src/lib.rs", encoding="utf-8").read()
 import re
