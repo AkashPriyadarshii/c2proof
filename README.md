@@ -1,78 +1,68 @@
-<div align="center">
-
 # c2proof
 
-**C to Rust migration with a verification report — not just transpiled code.**
+[![ci](https://github.com/AkashPriyadarshii/c2proof/actions/workflows/e2e.yml/badge.svg)](https://github.com/AkashPriyadarshii/c2proof/actions/workflows/e2e.yml)
 
-[![check](https://github.com/AkashPriyadarshii/c2proof/actions/workflows/check.yml/badge.svg)](https://github.com/AkashPriyadarshii/c2proof/actions/workflows/check.yml)
-[![e2e](https://github.com/AkashPriyadarshii/c2proof/actions/workflows/e2e.yml/badge.svg)](https://github.com/AkashPriyadarshii/c2proof/actions/workflows/e2e.yml)
-[![docker](https://github.com/AkashPriyadarshii/c2proof/actions/workflows/docker.yml/badge.svg)](https://github.com/AkashPriyadarshii/c2proof/actions/workflows/docker.yml)
-[![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![site](https://img.shields.io/website?url=https%3A%2F%2Fakashpriyadarshii.github.io%2Fc2proof%2F)](https://akashpriyadarshii.github.io/c2proof/)
+**C to Rust with a proof artifact. Verifier-first migration.**
 
-Turn a legacy C project into a compiling Rust port pull request, plus a REPORT.md that tells you what to distrust.
+Everyone generates Rust from C (agents, `c2rust`). Nobody trusts the output. Translation is commoditized; verification is scarce.
 
-**🌐 [akashpriyadarshii.github.io/c2proof](https://akashpriyadarshii.github.io/c2proof/)**
+`c2proof` is a CLI and GitHub Action that takes a C repository and emits a **pull request** containing a compiling Rust crate + a detailed parity report.
 
-</div>
+---
 
-## Why c2proof?
+## 🚀 Quickstart
 
-Automated C-to-Rust transpilers exist. Trusting their output doesn't. **c2proof** wraps [c2rust](https://c2rust.com/) mechanical translation in a verifier-first pipeline: every migration produces a **compiling Rust crate**, a **clippy gate**, and a **verification report** — so you review evidence, not vibes. Built for teams migrating legacy C codebases to memory-safe Rust with CI/CD automation.
-
-## Quickstart
-
-```bash
-cargo install --git https://github.com/AkashPriyadarshii/c2proof
-
-# offline pipeline against the committed golden fixture
-c2proof migrate ./tinyexpr --fixture
-```
-
-Or drop this into your repo's workflow:
+### As a GitHub Action (Recommended)
+Add `c2proof` to your C project to automatically generate a Rust port PR:
 
 ```yaml
-- uses: AkashPriyadarshii/c2proof@v0
-  with:
-    repo-url: https://github.com/codeplea/tinyexpr
-    token: ${{ github.token }}
+name: Rust Port
+on: [workflow_dispatch]
+
 permissions:
   contents: write
   pull-requests: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate Rust Port
+        uses: AkashPriyadarshii/c2proof@v0.1.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-Full setup → [INSTALL.md](INSTALL.md)
+### As a CLI
+```bash
+# Clone the transpiler CLI
+git clone https://github.com/AkashPriyadarshii/c2proof
+cd c2proof
 
-## How It Works
-
+# Migrate a C repository
+cargo run --release -- migrate https://github.com/codeplea/tinyexpr
 ```
-clone → scan → c2rust transpile (pinned docker) → clippy verify → PR + REPORT.md
-```
 
-1. **Flat-scan gate** — refuses non-flat C projects up front with an exact reason (exit 2). Metadata files (Makefile, README) are inert; subdirectories and unknown files are refused.
-2. **Pinned c2rust** — translation runs inside `ghcr.io/akashpriyadarshii/c2proof/runner:c2rust-0.20.0`, never on your laptop.
-3. **Verify, don't trust** — output must survive `cargo clippy -- -D warnings`; findings are captured, not hidden.
-4. **Proof artifact** — REPORT.md lists unsafe-function counts per file and build status inside the PR itself.
+## 📊 The "Proof Artifact"
 
-## Support Matrix
+It`s not just transpiled code. `c2proof` generates a `REPORT.md` that is attached to the PR, detailing:
+- 🟢 Build status (compiles cleanly)
+- 🦀 Lines of Code (C vs Rust)
+- ⚠️ `unsafe` block count
+- 🔍 Unresolved external symbols
 
-| Input | Status |
-|---|---|
-| Flat `.c`/`.h` directories (+ inert metadata) | ✅ supported |
-| tinyexpr | ✅ e2e-tested dogfood target |
-| Makefile/cmake-driven multi-dir repos | ❌ refused with reason |
-| Windows host for real transpile | ❌ (CI-only compute; fixture mode works anywhere) |
+## 💻 Support Matrix (v0.1.0)
 
-## Keywords
+For `v0.1.0`, scope is **strictly frozen** to:
+- **Project Structure**: Flat C projects only (`.c`/`.h` files). No `configure`, `make`, or `cmake` parsing.
+- **Dogfood Target**: Built and tested heavily against [`tinyexpr`](https://github.com/codeplea/tinyexpr).
+- **Environment**: Linux (Ubuntu latest) via Docker container containing pinned `c2rust`.
+- **Target OS**: No Windows support in v0.1.0.
 
-C to Rust converter · automated Rust migration · c2rust wrapper · transpile C to safe Rust · legacy code modernization · memory safety · Rust port generator · GitHub Action for code migration · verification-first transpilation · C refactoring tool · unsafe audit report
+## 🎥 Demo
+<!-- Asciinema terminal recording placeholder -->
+[![asciicast](https://asciinema.org/a/xxxxxx.svg)](https://asciinema.org/a/xxxxxx)
 
-## Roadmap
-
-- **v0.1** — flat C repos, pinned c2rust, verification report, PR bot ✅
-- **v0.2** — test-parity oracle (run original C tests against the port)
-- **later** — agent-generated ports as input · LLM refactor pass gated by test oracle
-
-## License
-
-MIT — see [LICENSE](LICENSE). c2rust is BSD-2-Clause; we orchestrate it, we don't vendor it.
+## ⚖️ License
+MIT / Apache-2.0
