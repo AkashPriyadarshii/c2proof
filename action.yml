@@ -1,7 +1,5 @@
 name: 'c2proof'
-description: >-
-  C to Rust migration with a verification report. Turns a flat C project into
-  a compiling Rust port branch + PR with REPORT.md evidence attached.
+description: 'C to Rust with proof. Transpiles a flat C project into a compiling Rust port PR + REPORT.md evidence.'
 branding:
   icon: 'check-circle'
   color: 'orange'
