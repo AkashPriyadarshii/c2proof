@@ -40,7 +40,18 @@ jobs:
         run: |
           R=$(find e2e-out -name REPORT.md | head -1)
           test -n "$R"
-          grep -q "✅ compiles" "$R"
+          if ! grep -q "✅ compiles" "$R"; then
+            echo "::error::Build failed. See REPORT.md contents below."
+            cat "$R"
+            exit 1
+          fi
+
+      - name: Upload e2e artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-out
+          path: e2e-out/
 
       - name: Refresh golden fixture
         id: fixture

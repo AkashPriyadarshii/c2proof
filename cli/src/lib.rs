@@ -116,20 +116,49 @@ fn verify(out: &Path) -> Result<Verification> {
                 .context("cargo clippy retry (is rustup stable installed?)")?;
         }
     }
-    let stderr = String::from_utf8_lossy(&res.stderr);
+    let stderr_raw = String::from_utf8_lossy(&res.stderr);
+    let stderr = strip_ansi(&stderr_raw);
+    let stdout_raw = String::from_utf8_lossy(&res.stdout);
+    let stdout = strip_ansi(&stdout_raw);
+
     let clippy_warnings = stderr
         .lines()
-        .filter(|l| l.starts_with("warning: "))
+        .filter(|l| l.trim_start().starts_with("warning: "))
         .count();
+
     let error_excerpt = if res.status.success() {
         String::new()
     } else {
-        stderr
-            .lines()
-            .filter(|l| l.starts_with("error"))
-            .take(8)
-            .collect::<Vec<_>>()
-            .join("\n")
+        let mut lines = Vec::new();
+        let mut capturing = false;
+        for line in stderr.lines() {
+            let t = line.trim_start();
+            if t.starts_with("error") || t.starts_with("Caused by:") {
+                capturing = true;
+            }
+            if capturing {
+                lines.push(line);
+                if lines.len() >= 20 {
+                    break;
+                }
+            }
+        }
+        if lines.is_empty() {
+            let source = if stderr.trim().is_empty() {
+                &stdout
+            } else {
+                &stderr
+            };
+            let fallback: Vec<_> = source
+                .lines()
+                .filter(|l| !l.trim().is_empty())
+                .rev()
+                .take(20)
+                .collect();
+            fallback.into_iter().rev().collect::<Vec<_>>().join("\n")
+        } else {
+            lines.join("\n")
+        }
     };
     Ok(Verification {
         build_ok: res.status.success(),
@@ -139,8 +168,26 @@ fn verify(out: &Path) -> Result<Verification> {
     })
 }
 
+pub fn strip_ansi(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut in_esc = false;
+    for c in s.chars() {
+        if c == '\x1b' {
+            in_esc = true;
+        } else if in_esc {
+            if c.is_ascii_alphabetic() {
+                in_esc = false;
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
+
 struct Captured {
     status: std::process::ExitStatus,
+    stdout: Vec<u8>,
     stderr: Vec<u8>,
 }
 
@@ -149,9 +196,11 @@ fn cargo_capture(args: &[&str], cwd: &Path) -> std::io::Result<Captured> {
         .args(args)
         .current_dir(cwd)
         .env_remove("CARGO_MANIFEST_DIR")
+        .env("CARGO_TERM_COLOR", "never")
         .output()?;
     Ok(Captured {
         status: out.status,
+        stdout: out.stdout,
         stderr: out.stderr,
     })
 }

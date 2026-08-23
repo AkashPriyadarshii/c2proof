@@ -324,3 +324,12 @@ fn stderr_names_missing_toolchain() {
     );
     assert_eq!(c2proof::stderr_missing_toolchain("no error here"), None);
 }
+
+#[test]
+fn strip_ansi_removes_color_codes() {
+    let colored = "\x1b[31;1merror\x1b[0m: missing toolchain";
+    assert_eq!(c2proof::strip_ansi(colored), "error: missing toolchain");
+
+    let plain = "just some text";
+    assert_eq!(c2proof::strip_ansi(plain), "just some text");
+}
