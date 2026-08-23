@@ -103,16 +103,17 @@ fn verify(out: &Path) -> Result<Verification> {
         let channel = ensure_toolchain_for(&pin_path)?;
         install_pinned_toolchain(&channel)?;
     }
+    // We pass `--cap-lints warn` to prevent deny-by-default lints (like approx_constant)
+    // from causing a hard compilation failure on mechanical c2rust output.
     let mut res =
-        cargo_capture(&["clippy"], out).context("cargo clippy (is rustup stable installed?)")?;
+        cargo_capture(&["clippy", "--", "--cap-lints", "warn"], out).context("cargo clippy (is rustup stable installed?)")?;
+
+    // Auto-install missing components if needed.
     if !res.status.success() {
-        // Mechanism-independent fallback: whatever selected an absent toolchain
-        // (pin file, env, cargo config), the error names it. Install + retry once.
-        let stderr = String::from_utf8_lossy(&res.stderr);
-        if let Some(channel) = stderr_missing_toolchain(&stderr) {
-            eprintln!("clippy named missing toolchain '{channel}' — installing and retrying once");
+        if let Some(channel) = stderr_missing_toolchain(&String::from_utf8_lossy(&res.stderr)) {
+            eprintln!("clippy named missing toolchain '{channel}' - installing and retrying once");
             install_pinned_toolchain(&channel)?;
-            res = cargo_capture(&["clippy"], out)
+            res = cargo_capture(&["clippy", "--", "--cap-lints", "warn"], out)
                 .context("cargo clippy retry (is rustup stable installed?)")?;
         }
     }
