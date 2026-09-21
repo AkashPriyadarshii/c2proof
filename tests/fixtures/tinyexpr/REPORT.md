@@ -6,7 +6,7 @@
 
 ## Build: ✅ compiles (`cargo clippy` ran clean of errors)
 
-## Clippy warnings captured: 1114
+## Clippy warnings captured: 1122
 
 ## Unsafe functions per file
 

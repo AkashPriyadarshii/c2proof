@@ -3017,35 +3017,37 @@ pub unsafe extern "C" fn test_optimize() {
                 567 as libc::c_int,
             );
         }
-        ltests += 1;
-        ltests;
-        let __LF_COMPARE: libc::c_double = fabs((*ex).c2rust_unnamed.value - answer);
-        if __LF_COMPARE > 0.001f64 || __LF_COMPARE != __LF_COMPARE {
-            lfails += 1;
-            lfails;
-            printf(
-                b"%s:%d (%f != %f)\n\0" as *const u8 as *const libc::c_char,
-                b"/work/src/smoke.c\0" as *const u8 as *const libc::c_char,
-                571 as libc::c_int,
-                (*ex).c2rust_unnamed.value,
-                answer,
-            );
+        if !ex.is_null() {
+            ltests += 1;
+            ltests;
+            let __LF_COMPARE: libc::c_double = fabs((*ex).c2rust_unnamed.value - answer);
+            if __LF_COMPARE > 0.001f64 || __LF_COMPARE != __LF_COMPARE {
+                lfails += 1;
+                lfails;
+                printf(
+                    b"%s:%d (%f != %f)\n\0" as *const u8 as *const libc::c_char,
+                    b"/work/src/smoke.c\0" as *const u8 as *const libc::c_char,
+                    572 as libc::c_int,
+                    (*ex).c2rust_unnamed.value,
+                    answer,
+                );
+            }
+            ltests += 1;
+            ltests;
+            let __LF_COMPARE_0: libc::c_double = fabs(te_eval(ex) - answer);
+            if __LF_COMPARE_0 > 0.001f64 || __LF_COMPARE_0 != __LF_COMPARE_0 {
+                lfails += 1;
+                lfails;
+                printf(
+                    b"%s:%d (%f != %f)\n\0" as *const u8 as *const libc::c_char,
+                    b"/work/src/smoke.c\0" as *const u8 as *const libc::c_char,
+                    573 as libc::c_int,
+                    te_eval(ex),
+                    answer,
+                );
+            }
+            te_free(ex);
         }
-        ltests += 1;
-        ltests;
-        let __LF_COMPARE_0: libc::c_double = fabs(te_eval(ex) - answer);
-        if __LF_COMPARE_0 > 0.001f64 || __LF_COMPARE_0 != __LF_COMPARE_0 {
-            lfails += 1;
-            lfails;
-            printf(
-                b"%s:%d (%f != %f)\n\0" as *const u8 as *const libc::c_char,
-                b"/work/src/smoke.c\0" as *const u8 as *const libc::c_char,
-                572 as libc::c_int,
-                te_eval(ex),
-                answer,
-            );
-        }
-        te_free(ex);
         i += 1;
         i;
     }
@@ -3227,7 +3229,7 @@ pub unsafe extern "C" fn test_pow() {
             printf(
                 b"%s:%d error \n\0" as *const u8 as *const libc::c_char,
                 b"/work/src/smoke.c\0" as *const u8 as *const libc::c_char,
-                638 as libc::c_int,
+                639 as libc::c_int,
             );
         }
         ltests += 1;
@@ -3238,7 +3240,7 @@ pub unsafe extern "C" fn test_pow() {
             printf(
                 b"%s:%d error \n\0" as *const u8 as *const libc::c_char,
                 b"/work/src/smoke.c\0" as *const u8 as *const libc::c_char,
-                639 as libc::c_int,
+                640 as libc::c_int,
             );
         }
         let mut r1: libc::c_double = te_eval(ex1);
@@ -3254,7 +3256,7 @@ pub unsafe extern "C" fn test_pow() {
             printf(
                 b"%s:%d (%f != %f)\n\0" as *const u8 as *const libc::c_char,
                 b"/work/src/smoke.c\0" as *const u8 as *const libc::c_char,
-                646 as libc::c_int,
+                647 as libc::c_int,
                 r1,
                 r2,
             );
@@ -3434,7 +3436,7 @@ pub unsafe extern "C" fn test_combinatorics() {
             printf(
                 b"%s:%d error \n\0" as *const u8 as *const libc::c_char,
                 b"/work/src/smoke.c\0" as *const u8 as *const libc::c_char,
-                691 as libc::c_int,
+                692 as libc::c_int,
             );
         }
         ltests += 1;
@@ -3446,7 +3448,7 @@ pub unsafe extern "C" fn test_combinatorics() {
             printf(
                 b"%s:%d (%f != %f)\n\0" as *const u8 as *const libc::c_char,
                 b"/work/src/smoke.c\0" as *const u8 as *const libc::c_char,
-                692 as libc::c_int,
+                693 as libc::c_int,
                 ev,
                 answer,
             );
@@ -3939,7 +3941,7 @@ pub unsafe extern "C" fn test_logic() {
             printf(
                 b"%s:%d error \n\0" as *const u8 as *const libc::c_char,
                 b"/work/src/smoke.c\0" as *const u8 as *const libc::c_char,
-                793 as libc::c_int,
+                794 as libc::c_int,
             );
         }
         ltests += 1;
@@ -3951,7 +3953,7 @@ pub unsafe extern "C" fn test_logic() {
             printf(
                 b"%s:%d (%f != %f)\n\0" as *const u8 as *const libc::c_char,
                 b"/work/src/smoke.c\0" as *const u8 as *const libc::c_char,
-                794 as libc::c_int,
+                795 as libc::c_int,
                 ev,
                 answer,
             );
@@ -3989,71 +3991,104 @@ pub unsafe extern "C" fn test_depth() {
         let mut expr: *mut libc::c_char = malloc(
             (depth * 2 as libc::c_int + 2 as libc::c_int) as libc::c_ulong,
         ) as *mut libc::c_char;
-        memset(expr as *mut libc::c_void, '(' as i32, depth as libc::c_ulong);
-        *expr.offset(depth as isize) = '1' as i32 as libc::c_char;
-        memset(
-            expr.offset(depth as isize).offset(1 as libc::c_int as isize)
-                as *mut libc::c_void,
-            ')' as i32,
-            depth as libc::c_ulong,
-        );
-        *expr
-            .offset(
-                (depth * 2 as libc::c_int + 1 as libc::c_int) as isize,
-            ) = '\0' as i32 as libc::c_char;
-        let mut r: libc::c_double = te_interp(expr, &mut err);
-        ltests += 1;
-        ltests;
-        if if ok != 0 {
-            (err == 0 as libc::c_int && r == 1.0f64) as libc::c_int
+        if expr.is_null() {
+            ltests += 1;
+            ltests;
+            if 0 as libc::c_int == 0 {
+                lfails += 1;
+                lfails;
+                printf(
+                    b"%s:%d error \n\0" as *const u8 as *const libc::c_char,
+                    b"/work/src/smoke.c\0" as *const u8 as *const libc::c_char,
+                    816 as libc::c_int,
+                );
+            }
         } else {
-            (err != 0 as libc::c_int && r != r) as libc::c_int
-        } == 0
-        {
-            lfails += 1;
-            lfails;
-            printf(
-                b"%s:%d error \n\0" as *const u8 as *const libc::c_char,
-                b"/work/src/smoke.c\0" as *const u8 as *const libc::c_char,
-                821 as libc::c_int,
+            memset(expr as *mut libc::c_void, '(' as i32, depth as libc::c_ulong);
+            *expr.offset(depth as isize) = '1' as i32 as libc::c_char;
+            memset(
+                expr.offset(depth as isize).offset(1 as libc::c_int as isize)
+                    as *mut libc::c_void,
+                ')' as i32,
+                depth as libc::c_ulong,
             );
+            *expr
+                .offset(
+                    (depth * 2 as libc::c_int + 1 as libc::c_int) as isize,
+                ) = '\0' as i32 as libc::c_char;
+            let mut r: libc::c_double = te_interp(expr, &mut err);
+            ltests += 1;
+            ltests;
+            if if ok != 0 {
+                (err == 0 as libc::c_int && r == 1.0f64) as libc::c_int
+            } else {
+                (err != 0 as libc::c_int && r != r) as libc::c_int
+            } == 0
+            {
+                lfails += 1;
+                lfails;
+                printf(
+                    b"%s:%d error \n\0" as *const u8 as *const libc::c_char,
+                    b"/work/src/smoke.c\0" as *const u8 as *const libc::c_char,
+                    823 as libc::c_int,
+                );
+            }
+            free(expr as *mut libc::c_void);
+            expr = malloc((depth * 4 as libc::c_int + 2 as libc::c_int) as libc::c_ulong)
+                as *mut libc::c_char;
+            if expr.is_null() {
+                ltests += 1;
+                ltests;
+                if 0 as libc::c_int == 0 {
+                    lfails += 1;
+                    lfails;
+                    printf(
+                        b"%s:%d error \n\0" as *const u8 as *const libc::c_char,
+                        b"/work/src/smoke.c\0" as *const u8 as *const libc::c_char,
+                        828 as libc::c_int,
+                    );
+                }
+            } else {
+                j = 0 as libc::c_int;
+                while j < depth {
+                    memcpy(
+                        expr.offset((j * 4 as libc::c_int) as isize)
+                            as *mut libc::c_void,
+                        b"sin \0" as *const u8 as *const libc::c_char
+                            as *const libc::c_void,
+                        4 as libc::c_int as libc::c_ulong,
+                    );
+                    j += 1;
+                    j;
+                }
+                *expr
+                    .offset(
+                        (depth * 4 as libc::c_int) as isize,
+                    ) = '1' as i32 as libc::c_char;
+                *expr
+                    .offset(
+                        (depth * 4 as libc::c_int + 1 as libc::c_int) as isize,
+                    ) = '\0' as i32 as libc::c_char;
+                r = te_interp(expr, &mut err);
+                ltests += 1;
+                ltests;
+                if if ok != 0 {
+                    (err == 0 as libc::c_int) as libc::c_int
+                } else {
+                    (err != 0 as libc::c_int && r != r) as libc::c_int
+                } == 0
+                {
+                    lfails += 1;
+                    lfails;
+                    printf(
+                        b"%s:%d error \n\0" as *const u8 as *const libc::c_char,
+                        b"/work/src/smoke.c\0" as *const u8 as *const libc::c_char,
+                        834 as libc::c_int,
+                    );
+                }
+                free(expr as *mut libc::c_void);
+            }
         }
-        free(expr as *mut libc::c_void);
-        expr = malloc((depth * 4 as libc::c_int + 2 as libc::c_int) as libc::c_ulong)
-            as *mut libc::c_char;
-        j = 0 as libc::c_int;
-        while j < depth {
-            memcpy(
-                expr.offset((j * 4 as libc::c_int) as isize) as *mut libc::c_void,
-                b"sin \0" as *const u8 as *const libc::c_char as *const libc::c_void,
-                4 as libc::c_int as libc::c_ulong,
-            );
-            j += 1;
-            j;
-        }
-        *expr.offset((depth * 4 as libc::c_int) as isize) = '1' as i32 as libc::c_char;
-        *expr
-            .offset(
-                (depth * 4 as libc::c_int + 1 as libc::c_int) as isize,
-            ) = '\0' as i32 as libc::c_char;
-        r = te_interp(expr, &mut err);
-        ltests += 1;
-        ltests;
-        if if ok != 0 {
-            (err == 0 as libc::c_int) as libc::c_int
-        } else {
-            (err != 0 as libc::c_int && r != r) as libc::c_int
-        } == 0
-        {
-            lfails += 1;
-            lfails;
-            printf(
-                b"%s:%d error \n\0" as *const u8 as *const libc::c_char,
-                b"/work/src/smoke.c\0" as *const u8 as *const libc::c_char,
-                831 as libc::c_int,
-            );
-        }
-        free(expr as *mut libc::c_void);
         i += 1;
         i;
     }
@@ -4215,7 +4250,7 @@ pub unsafe extern "C" fn test_number() {
             printf(
                 b"%s:%d error \n\0" as *const u8 as *const libc::c_char,
                 b"/work/src/smoke.c\0" as *const u8 as *const libc::c_char,
-                886 as libc::c_int,
+                889 as libc::c_int,
             );
         }
         if ok == 0 {
@@ -4254,7 +4289,7 @@ pub unsafe extern "C" fn test_number() {
             printf(
                 b"%s:%d error \n\0" as *const u8 as *const libc::c_char,
                 b"/work/src/smoke.c\0" as *const u8 as *const libc::c_char,
-                901 as libc::c_int,
+                904 as libc::c_int,
             );
         }
         ltests += 1;
@@ -4265,7 +4300,7 @@ pub unsafe extern "C" fn test_number() {
             printf(
                 b"%s:%d error \n\0" as *const u8 as *const libc::c_char,
                 b"/work/src/smoke.c\0" as *const u8 as *const libc::c_char,
-                902 as libc::c_int,
+                905 as libc::c_int,
             );
         }
         j_0 += 1;
@@ -4322,7 +4357,7 @@ pub unsafe extern "C" fn test_locale() {
         printf(
             b"%s:%d (%f != %f)\n\0" as *const u8 as *const libc::c_char,
             b"/work/src/smoke.c\0" as *const u8 as *const libc::c_char,
-            929 as libc::c_int,
+            932 as libc::c_int,
             te_interp(
                 b"1.5\0" as *const u8 as *const libc::c_char,
                 0 as *mut libc::c_int,
@@ -4342,7 +4377,7 @@ pub unsafe extern "C" fn test_locale() {
         printf(
             b"%s:%d (%f != %f)\n\0" as *const u8 as *const libc::c_char,
             b"/work/src/smoke.c\0" as *const u8 as *const libc::c_char,
-            930 as libc::c_int,
+            933 as libc::c_int,
             te_interp(
                 b".5\0" as *const u8 as *const libc::c_char,
                 0 as *mut libc::c_int,
@@ -4364,7 +4399,7 @@ pub unsafe extern "C" fn test_locale() {
         printf(
             b"%s:%d (%f != %f)\n\0" as *const u8 as *const libc::c_char,
             b"/work/src/smoke.c\0" as *const u8 as *const libc::c_char,
-            931 as libc::c_int,
+            934 as libc::c_int,
             te_interp(
                 b"2.25+3.5\0" as *const u8 as *const libc::c_char,
                 0 as *mut libc::c_int,
@@ -4384,7 +4419,7 @@ pub unsafe extern "C" fn test_locale() {
         printf(
             b"%s:%d (%f != %f)\n\0" as *const u8 as *const libc::c_char,
             b"/work/src/smoke.c\0" as *const u8 as *const libc::c_char,
-            932 as libc::c_int,
+            935 as libc::c_int,
             te_interp(
                 b"1e3\0" as *const u8 as *const libc::c_char,
                 0 as *mut libc::c_int,
@@ -4404,7 +4439,7 @@ pub unsafe extern "C" fn test_locale() {
         printf(
             b"%s:%d (%f != %f)\n\0" as *const u8 as *const libc::c_char,
             b"/work/src/smoke.c\0" as *const u8 as *const libc::c_char,
-            933 as libc::c_int,
+            936 as libc::c_int,
             te_interp(
                 b"1.5e-1\0" as *const u8 as *const libc::c_char,
                 0 as *mut libc::c_int,
@@ -4424,7 +4459,7 @@ pub unsafe extern "C" fn test_locale() {
         printf(
             b"%s:%d (%f != %f)\n\0" as *const u8 as *const libc::c_char,
             b"/work/src/smoke.c\0" as *const u8 as *const libc::c_char,
-            934 as libc::c_int,
+            937 as libc::c_int,
             te_interp(
                 b"0x1F\0" as *const u8 as *const libc::c_char,
                 0 as *mut libc::c_int,
@@ -4444,7 +4479,7 @@ pub unsafe extern "C" fn test_locale() {
         printf(
             b"%s:%d (%f != %f)\n\0" as *const u8 as *const libc::c_char,
             b"/work/src/smoke.c\0" as *const u8 as *const libc::c_char,
-            935 as libc::c_int,
+            938 as libc::c_int,
             te_interp(
                 b"1,5\0" as *const u8 as *const libc::c_char,
                 0 as *mut libc::c_int,
