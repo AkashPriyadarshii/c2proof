@@ -1,5 +1,7 @@
 # c2proof
 
+[![release](https://img.shields.io/github/v/release/AkashPriyadarshii/c2proof?style=flat-square&label=release)](https://github.com/AkashPriyadarshii/c2proof/releases)
+
 [![ci](https://github.com/AkashPriyadarshii/c2proof/actions/workflows/e2e.yml/badge.svg)](https://github.com/AkashPriyadarshii/c2proof/actions/workflows/e2e.yml)
 
 **C to Rust with a proof artifact. Verifier-first migration.**
