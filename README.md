@@ -68,3 +68,8 @@ For `v0.1.0`, scope is **strictly frozen** to:
 
 ## ⚖️ License
 MIT / Apache-2.0
+
+
+---
+
+**Support:** fuel the next build — [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/AkashPriyadarshi)
